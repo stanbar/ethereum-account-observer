@@ -4,10 +4,7 @@ let localConfig = {
     host: 'localhost',
     port: 8545
 };
-let infuraRopstenConfig = {
-    host: 'https://ropsten.infura.io/O6ZVPclySRINaTvCz9kP',
-    port: 8545
-};
+
 let raspberryRopstenConfig = {
     host: 'http://192.168.1.237',
     port: 8545
