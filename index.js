@@ -1,23 +1,23 @@
 var Web3 = require('web3');
-let firestore = require('./firestore')
+let firestore = require('./firestore');
 
-console.log(`Connecting to geth on RPC @ ${gethServer.host}:${gethServer.port}`);
-var web3 = new Web3('ws://raspberrypi.lan:8546');
-console.log('Connected successfuly !');
+const url = 'ws://raspberrypi.lan:8546';
+var web3 = new Web3(url);
+
+console.log(`Connected successfully to ${url} !`);
 
 
 let wallet = '0xE3D682d14e78a16777043cFBb35244D8dF0d574A';
 
 const args = process.argv;
-if (args[2] === 'scan' || args[2] === 'scanning'){
+if (args[2] === 'scan' || args[2] === 'scanning') {
     scanBlockRange(2697609, undefined);
-}else if (args[2] === 'watch' || args[2] === 'listen')
+} else
     watch();
-else console.log("parameter required");
 
 
 function scanBlockRange(startingBlock, stoppingBlock, callback) {
-    
+
     /**
      * Maximum number of threads to create.
      *
@@ -43,8 +43,8 @@ function scanBlockRange(startingBlock, stoppingBlock, callback) {
     if (typeof stoppingBlock === 'undefined') {
         stoppingBlock = web3.eth.blockNumber;
         console.log(`scanning blocks from ${startingBlock} to current ${stoppingBlock}`);
-    }else
-    console.log(`scanning blocks from ${startingBlock} to ${stoppingBlock}`);
+    } else
+        console.log(`scanning blocks from ${startingBlock} to ${stoppingBlock}`);
 
 
     // If they asked for a starting block that's after the stopping block,
@@ -56,7 +56,6 @@ function scanBlockRange(startingBlock, stoppingBlock, callback) {
         return -1;
     }
 
-    
 
     let blockNumber = startingBlock,
         gotError = false,
@@ -105,7 +104,7 @@ function scanBlockRange(startingBlock, stoppingBlock, callback) {
         var myBlockNumber = blockNumber++;
 
         // Write periodic status update so we can tell something is happening
-        if (myBlockNumber % maxThreads == 0 || myBlockNumber == stoppingBlock) {
+        if (myBlockNumber % maxThreads === 0 || myBlockNumber === stoppingBlock) {
             var pctDone = getPercentComplete(myBlockNumber);
             process.stdout.write(`\rScanning block ${myBlockNumber} - ${pctDone} %`);
         }
@@ -139,7 +138,8 @@ function scanBlockRange(startingBlock, stoppingBlock, callback) {
 function scanBlockCallback(block) {
 
     if (block.transactions) {
-        console.log(`scanning ${block.transactions.length} transactions`)
+        const blockDate = new Date(block.timestamp);
+        console.log(`${blockDate.getHours()}:${blockDate.getMinutes()}:${blockDate.getSeconds()} Scanning Block: ${block.hash} height: ${block.number}  ${block.transactions.length} transactions`)
         for (var i = 0; i < block.transactions.length; i++) {
             var txn = block.transactions[i];
             scanTransactionCallback(txn, block);
@@ -150,54 +150,45 @@ function scanBlockCallback(block) {
 function scanTransactionCallback(txn, block) {
     //    console.log(JSON.stringify(block, null, 4));
     //    console.log(JSON.stringify(txn, null, 4));
-        console.log(`\r${format(txn,block, false)}`);
-        if (txn.to != null && txn.to.toLowerCase() == wallet.toLowerCase()) {
-            
-            // A transaction credited ether into this wallet
-            console.log(`\rTO MY WALLET ${format(txn,block, true)}`);
-            var email = web3.utils.hexToAscii(txn.input);
-            firestore.insertTranscation('ETH',email, txn);
+    console.log(`\r${format(txn, false)}`);
+    if (txn.to !== null && txn.to.toLowerCase() === wallet.toLowerCase()) {
 
-            
+        // A transaction credited ether into this wallet
+        console.log(`\rTO MY WALLET ${format(txn, true)}`);
+        var email = web3.utils.hexToAscii(txn.input);
+        firestore.insertTranscation('ETH', email, txn, block);
 
-        } else if (txn.from != null && txn.from.toLowerCase() == wallet.toLowerCase()) {
-            // A transaction debitted ether from this wallet
-            console.log(`\rFROM MY WALLET  ${format(txn,block, true)}`);
-        }
+
+    } else if (txn.from !== null && txn.from.toLowerCase() === wallet.toLowerCase()) {
+        // A transaction debitted ether from this wallet
+        console.log(`\rFROM MY WALLET  ${format(txn, true)}`);
     }
-    function format(txn,block,decode){
-        const ether = web3.utils.fromWei(txn.value);
-        return `${block.timestamp} nonce: ${txn.nonce} +${ether} from: ${txn.from} data: ${formatInput(txn.input,decode)}`
-    }
-    
-    function formatInput(rawInput,decode){
-        const text = decode ? web3.utils.hexToAscii(rawInput) : rawInput;
-        return text.length > 30 ? text.substr(0,30) : text;
-    }
+}
+
+function format(txn, decode) {
+    const ether = web3.utils.fromWei(txn.value);
+    return `${txn.hash} ${ether} from: ${txn.from} data: ${decode ? web3.utils.hexToAscii(txn.input) : " "}`
+}
 
 
 function watch() {
-    console.log('Started subscription')
+    console.log(`Listening for newBlockHeaders on ${wallet}`);
     web3.eth.subscribe('newBlockHeaders')
-    .on("data", (blockHeader) => {
-        web3.eth.getBlock(blockHeader.number, true, (error, results) => {
-            if(!error){
-                scanBlockCallback(results)
-            }
+        .on("data", (blockHeader) => {
+            web3.eth.getBlock(blockHeader.number, true, (error, results) => {
+                if (!error) {
+                    scanBlockCallback(results)
+                }
+            })
         })
-    })
-    .on("error", (error) => {
-        console.log("newBlockHeaders error")
-        console.log(error);
-    });
+        .on("error", (error) => {
+            console.log("newBlockHeaders error");
+            console.log(error);
+        });
 
     web3.eth.subscribe('syncing')
-    .on("data", (blockHeader) => {
-        console.log("syncing data")
-        console.log(blockHeader);
-    })
-    .on("changed", (isSyncing) => {
-        console.log(`syncing changed ${isSyncing}`)
-    });
-    
+        .on("changed", (isSyncing) => {
+            console.log(`syncing changed ${isSyncing}`)
+        });
+
 }
