@@ -1,44 +1,43 @@
-var Web3 = require('web3');
-let firestore = require('./firestore');
+const Web3 = require('web3');
+const firestore = require('./firestore');
+const connection = require('./connection');
 
-const url = 'ws://raspberrypi.lan:8546';
-var web3 = new Web3(url);
+const local = {
+    ip: 'geth',
+    port: '8546'
+};
+const remote = {
+    ip: 'raspberrypi.lan',
+    port: '8546'
+};
 
-console.log(`Connected successfully to ${url} !`);
+const ip = local.ip;
+const port = local.port;
+
+const web3 = new Web3(`ws://${ip}:${port}`);
+
+
 
 
 let wallet = '0xE3D682d14e78a16777043cFBb35244D8dF0d574A';
 
-const args = process.argv;
-if (args[2] === 'scan' || args[2] === 'scanning') {
-    scanBlockRange(2697609, undefined);
-} else
-    watch();
+connection.checkConnection(ip, port).then(function() {
+    console.log(`Connected successfully to ws://${ip}:${port} !`);
+
+    const args = process.argv;
+    if (args[2] === 'scan' || args[2] === 'scanning') {
+        scanBlockRange(2697609, undefined);
+    } else
+        watch();
+
+}, function(err) {
+    console.error(`Can not connect to ws://${ip}:${port}`);
+});
+
 
 
 function scanBlockRange(startingBlock, stoppingBlock, callback) {
-
-    /**
-     * Maximum number of threads to create.
-     *
-     * The higher you set this, the faster the scan will run.  However if
-     * you set it too high, you will overload the geth server and/or your
-     * client machine and you may start getting networking errors.
-     *
-     * Generally speaking on a dual-core CPU that runs both geth
-     * and this scanning client, I can scan ~ 300 blocks/second,
-     * but in so doing, the CPU maxed at 100%.
-     *
-     * On the same dual-core CPU, settings higher than 200 threads
-     * actually SLOW DOWN the processing since the I/O overhead exceeds
-     * the capabilities of the machine.  Your results may vary.
-     *
-     * @type {number}
-     */
     let maxThreads = 200;
-
-    // If they didn't provide an explicit stopping block, then read
-    // ALL of the blocks up to the current one.
 
     if (typeof stoppingBlock === 'undefined') {
         stoppingBlock = web3.eth.blockNumber;
@@ -47,12 +46,8 @@ function scanBlockRange(startingBlock, stoppingBlock, callback) {
         console.log(`scanning blocks from ${startingBlock} to ${stoppingBlock}`);
 
 
-    // If they asked for a starting block that's after the stopping block,
-    // that is an error (or they're waiting for more blocks to appear,
-    // which hasn't yet happened).
-
     if (startingBlock > stoppingBlock) {
-        console.log('Your startingBlock is greater than stoppingBlock')
+        console.log('Your startingBlock is greater than stoppingBlock');
         return -1;
     }
 
@@ -63,14 +58,14 @@ function scanBlockRange(startingBlock, stoppingBlock, callback) {
         startTime = new Date();
 
     function getPercentComplete(bn) {
-        var t = stoppingBlock - startingBlock,
-            n = bn - startingBlock;
+        const t = stoppingBlock - startingBlock;
+        const n = bn - startingBlock;
         return Math.floor(n / t * 100, 2);
     }
 
     function exitThread() {
-        if (--numThreads == 0) {
-            var numBlocksScanned = 1 + stoppingBlock - startingBlock,
+        if (--numThreads === 0) {
+            const numBlocksScanned = 1 + stoppingBlock - startingBlock,
                 stopTime = new Date(),
                 duration = (stopTime.getTime() - startTime.getTime()) / 1000,
                 blocksPerSec = Math.floor(numBlocksScanned / duration, 2),
@@ -88,34 +83,20 @@ function scanBlockRange(startingBlock, stoppingBlock, callback) {
     }
 
     function asyncScanNextBlock() {
-
-        // If we've encountered an error, stop scanning blocks
-        if (gotError) {
+        if (gotError)
             return exitThread();
-        }
 
-        // If we've reached the end, don't scan more blocks
-        if (blockNumber > stoppingBlock) {
+        if (blockNumber > stoppingBlock)
             return exitThread();
-        }
 
-        // Scan the next block and assign a callback to scan even more
-        // once that is done.
-        var myBlockNumber = blockNumber++;
 
-        // Write periodic status update so we can tell something is happening
-        if (myBlockNumber % maxThreads === 0 || myBlockNumber === stoppingBlock) {
-            var pctDone = getPercentComplete(myBlockNumber);
-            process.stdout.write(`\rScanning block ${myBlockNumber} - ${pctDone} %`);
-        }
+        const myBlockNumber = blockNumber++;
 
-        // Async call to getBlock() means we can run more than 1 thread
-        // at a time, which is MUCH faster for scanning.
+        printStatus(myBlockNumber, maxThreads,stoppingBlock);
 
         web3.eth.getBlock(myBlockNumber, true, (error, block) => {
 
             if (error) {
-                // Error retrieving this block
                 gotError = true;
                 console.error("Error:", error);
             } else {
@@ -124,14 +105,20 @@ function scanBlockRange(startingBlock, stoppingBlock, callback) {
             }
         });
     }
+    function printStatus(myBlockNumber, maxThreads, stoppingBlock){
+        if (myBlockNumber % maxThreads === 0 || myBlockNumber === stoppingBlock) {
+            const pctDone = getPercentComplete(myBlockNumber);
+            process.stdout.write(`\rScanning block ${myBlockNumber} - ${pctDone} %`);
+        }
+    }
 
-    var nt;
+    let nt;
     for (nt = 0; nt < maxThreads && startingBlock + nt <= stoppingBlock; nt++) {
         numThreads++;
         asyncScanNextBlock();
     }
 
-    return nt; // number of threads spawned (they'll continue processing)
+    return nt;
 }
 
 
@@ -140,8 +127,8 @@ function scanBlockCallback(block) {
     if (block.transactions) {
         const blockDate = new Date(block.timestamp);
         console.log(`${blockDate.getHours()}:${blockDate.getMinutes()}:${blockDate.getSeconds()} Scanning Block: ${block.hash} height: ${block.number}  ${block.transactions.length} transactions`)
-        for (var i = 0; i < block.transactions.length; i++) {
-            var txn = block.transactions[i];
+        for (let i = 0; i < block.transactions.length; i++) {
+            const txn = block.transactions[i];
             scanTransactionCallback(txn, block);
         }
     }
@@ -150,17 +137,16 @@ function scanBlockCallback(block) {
 function scanTransactionCallback(txn, block) {
     //    console.log(JSON.stringify(block, null, 4));
     //    console.log(JSON.stringify(txn, null, 4));
-    console.log(`\r${format(txn, false)}`);
     if (txn.to !== null && txn.to.toLowerCase() === wallet.toLowerCase()) {
 
-        // A transaction credited ether into this wallet
+        // A transaction credited ether into our wallet
         console.log(`\rTO MY WALLET ${format(txn, true)}`);
         var email = web3.utils.hexToAscii(txn.input);
         firestore.insertTranscation('ETH', email, txn, block);
 
 
     } else if (txn.from !== null && txn.from.toLowerCase() === wallet.toLowerCase()) {
-        // A transaction debitted ether from this wallet
+        // A transaction debitted ether from our wallet
         console.log(`\rFROM MY WALLET  ${format(txn, true)}`);
     }
 }
@@ -172,8 +158,9 @@ function format(txn, decode) {
 
 
 function watch() {
-    console.log(`Listening for newBlockHeaders on ${wallet}`);
-    web3.eth.subscribe('newBlockHeaders')
+    console.log(`Listening ethereum network for newBlockHeaders`);
+
+    var subscription = web3.eth.subscribe('newBlockHeaders')
         .on("data", (blockHeader) => {
             web3.eth.getBlock(blockHeader.number, true, (error, results) => {
                 if (!error) {
@@ -186,9 +173,14 @@ function watch() {
             console.log(error);
         });
 
-    web3.eth.subscribe('syncing')
-        .on("changed", (isSyncing) => {
-            console.log(`syncing changed ${isSyncing}`)
+    process.on('SIGINT', function() {
+    console.log("Gracefully stopping websocket subscription...");
+        subscription.unsubscribe(function(error, success){
+            if(success){
+                console.log('Successfully unsubscribed!');
+                process.exit();
+            }
         });
+    });
 
 }

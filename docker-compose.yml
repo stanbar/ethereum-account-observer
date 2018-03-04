@@ -1,0 +1,26 @@
+version: '3'
+services:
+  geth:
+    image: ethereum/client-go:alpine
+    container_name: geth
+    networks:
+     - gethnet
+    ports:
+      - "8546"
+      - "30303"
+    command: "--testnet --syncmode light --ws --wsorigins * --wsapi personal,db,eth,net,web3 --wsaddr 0.0.0.0"
+
+  ethWatcher:
+    depends_on: 
+      - "geth"
+    build: .
+    image: stasbar/ethwatcher
+    user: "node"
+    container_name: ethwatcher
+    networks:
+         - gethnet
+    environment:
+      - NODE_ENV=production
+
+networks:
+  gethnet:
