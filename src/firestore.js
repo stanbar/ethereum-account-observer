@@ -9,6 +9,11 @@ admin.initializeApp({
 
 const db = admin.firestore();
 
+function getAccountAddressForCurrency(currencySymbol){
+    return db.collection('payments').doc(currencySymbol).get();
+}
+exports.getAccountAddressForCurrency = getAccountAddressForCurrency;
+
 function insertTranscation(currencySymbol, userID, txn, block){
 	console.log(`inserting into payments/${currencySymbol}/${userID}/${txn.hash}`);
 	return db.collection('payments').doc(currencySymbol).collection(userID).doc(txn.hash).set({

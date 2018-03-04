@@ -16,23 +16,26 @@ const port = local.port;
 
 const web3 = new Web3(`ws://${ip}:${port}`);
 
+let accountAddress;
 
+const checkConnectionPromise = connection.checkConnection(ip, port);
+const getAddressPromise = firestore.getAccountAddressForCurrency('ETH');
 
-
-let wallet = '0xE3D682d14e78a16777043cFBb35244D8dF0d574A';
-
-connection.checkConnection(ip, port).then(function() {
+Promise.all([getAddressPromise,checkConnectionPromise]).then(values => {
     console.log(`Connected successfully to ws://${ip}:${port} !`);
+
+    accountAddress = values[0].data().address;
+    console.log(`Account address set to ${accountAddress}`);
 
     const args = process.argv;
     if (args[2] === 'scan' || args[2] === 'scanning') {
         scanBlockRange(2697609, undefined);
     } else
         watch();
-
-}, function(err) {
-    console.error(`Can not connect to ws://${ip}:${port}`);
+}).catch(err => {
+    console.error(err)
 });
+
 
 
 
@@ -126,7 +129,7 @@ function scanBlockCallback(block) {
 
     if (block.transactions) {
         const blockDate = new Date(block.timestamp);
-        console.log(`${blockDate.getHours()}:${blockDate.getMinutes()}:${blockDate.getSeconds()} Scanning Block: ${block.hash} height: ${block.number}  ${block.transactions.length} transactions`)
+        console.log(`${blockDate.getHours()}:${blockDate.getMinutes()}:${blockDate.getSeconds()} Scanning Block: ${block.hash} height: ${block.number}  ${block.transactions.length} transactions`);
         for (let i = 0; i < block.transactions.length; i++) {
             const txn = block.transactions[i];
             scanTransactionCallback(txn, block);
@@ -137,16 +140,16 @@ function scanBlockCallback(block) {
 function scanTransactionCallback(txn, block) {
     //    console.log(JSON.stringify(block, null, 4));
     //    console.log(JSON.stringify(txn, null, 4));
-    if (txn.to !== null && txn.to.toLowerCase() === wallet.toLowerCase()) {
+    if (txn.to !== null && txn.to.toLowerCase() === accountAddress.toLowerCase()) {
 
-        // A transaction credited ether into our wallet
+        // A transaction credited ether into our accountAddress
         console.log(`\rTO MY WALLET ${format(txn, true)}`);
-        var email = web3.utils.hexToAscii(txn.input);
-        firestore.insertTranscation('ETH', email, txn, block);
+        const userId = web3.utils.hexToAscii(txn.input);
+        firestore.insertTranscation('ETH', userId, txn, block);
 
 
-    } else if (txn.from !== null && txn.from.toLowerCase() === wallet.toLowerCase()) {
-        // A transaction debitted ether from our wallet
+    } else if (txn.from !== null && txn.from.toLowerCase() === accountAddress.toLowerCase()) {
+        // A transaction debitted ether from our accountAddress
         console.log(`\rFROM MY WALLET  ${format(txn, true)}`);
     }
 }
