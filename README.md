@@ -8,4 +8,4 @@ then start containers with: `docker-compose up`
 
 Starts two services:
 - geth  - ethereum p2p client in light mode (doesn't store blockchain)
-- ethWatcher - nodejs app that is observing changes on account address
+- ethWatcher - nodejs app that observes changes on account address
