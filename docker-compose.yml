@@ -5,6 +5,8 @@ services:
     image: ethereum/client-go:alpine # amd64 arch
  #   build: ./geth-arm # ARMv7 arch 
     container_name: geth
+    volumes:
+     - ./blockchain:/root/.ethereum
     networks:
      - gethnet
     ports:
