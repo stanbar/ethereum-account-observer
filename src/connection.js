@@ -2,7 +2,7 @@ const net = require('net');
 
 function checkConnection(host, port, timeout) {
     return new Promise(function(resolve, reject) {
-        timeout = timeout || 3000; // default of 3 seconds
+        timeout = timeout || 20000; // default of 20 seconds
         const timer = setTimeout(function() {
             reject("timeout");
             socket.end();
