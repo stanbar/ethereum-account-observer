@@ -1,7 +1,9 @@
 version: '3'
 services:
   geth:
-    image: ethereum/client-go:alpine
+  #use one of those
+    image: ethereum/client-go:alpine # amd64 arch
+ #   build: ./geth-arm # ARMv7 arch 
     container_name: geth
     networks:
      - gethnet
