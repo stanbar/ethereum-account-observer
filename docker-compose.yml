@@ -6,7 +6,7 @@ services:
  #   build: ./geth-arm # ARMv7 arch 
     container_name: geth
     volumes:
-     - ./.ethereum:/root/.ethereum
+     - ~/.ethereum:/root/.ethereum
     networks:
      - gethnet
     ports:
