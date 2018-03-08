@@ -12,6 +12,7 @@ services:
     ports:
       - "8546"
       - "30303"
+    restart: always
     command: "--testnet --syncmode light --ws --wsorigins * --wsapi personal,db,eth,net,web3 --wsaddr 0.0.0.0"
 
   ethWatcher:
@@ -25,6 +26,6 @@ services:
          - gethnet
     environment:
       - NODE_ENV=production
-
+    restart: always
 networks:
   gethnet:
