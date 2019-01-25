@@ -7,11 +7,13 @@
     "start": "node src/index.js"
   },
   "dependencies": {
+    "cryptiles": ">=4.1.2",
     "ethereumjs-tx": "1.3.7",
     "ethereumjs-util": "6.0.0",
     "firebase-admin": "^6.5.0",
     "net": "^1.0.2",
-    "web3": "^1.0.0-beta.30"
+    "sshpk": ">=1.13.2",
+    "web3": "^1.0.0-beta2"
   },
   "repository": {
     "type": "git",
